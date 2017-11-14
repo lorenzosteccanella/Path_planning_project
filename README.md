@@ -1,11 +1,106 @@
-# CarND-Path-Planning-Project
-Self-Driving Car Engineer Nanodegree Program
-   
+# Path-Planning-Project
+
+
+### Path generation.
+The project has been accomplished in two steps:
+
+1° step: Path generation in order to drive smoothly in the street. The car is controlled thanks to point path that the planner generate, the car moves from point to point perfectly, so we don't have to worry about building a controller for this project. 
+The first attempt in creating a feasible trajectory with the goal of driving at a velocity of 50 MPH, this means that since the car moves 50 times a second, a distance of 0.5m per move will create a velocity of 25 m/s, has been made just using freenet coordinate and space the point 0.5m. This approach seem to work well within the average velocity but has the issue that sometimes exceed the maximum velocity. In fact with this approach we are not considering that when we turn we are traversing more distance.
+
+Since a linear trajectory doesn't work we take advantages of the spline c++ library that implements a cubic interpolation to solve this issue:
+
+// create spline object
+tk::spline s;
+// set x,y points to the spline
+s.set_points(ptsx,ptsy);
+
+// calculate how to break up spline points so we trave at the target velocity
+double target_x = 30.0;
+double target_y = s(target_x);
+double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
+
+// number of points 
+double N = (target_dist/(.02*ref_vel/2.24));
+
+
+2° step: Avoid collision and change lane when a lane is free. The goal of this step is to find a policy to follow in order to drive in highway this include decide when change lane and decide when you can't change lane and you have to slow down. 
+The sensor_fusion vector list all the vehicle in the street with velocity information, d freanet coordinate and s Frenet coordinate: 
+
+float d = sensor_fusion[i][6];
+double vx= sensor_fusion[i][3];
+double vy= sensor_fusion[i][4];
+double check_speed = sqrt(vx*vx + vy*vy);
+double check_car_s = sensor_fusion[i][5];
+
+check_car_s += ((double) prev_size*.02*check_speed);
+
+For detecting if a car is too close we can simply detect if the car is in my lane and if the s distance is under a determined treshold ( i.e. 30): 
+
+// car is in my lane
+		  if(d < (2+4*lane+2) && d > (2+4*lane-2)){
+		    // car is too close
+		    if((check_car_s > car_s) && ((check_car_s - car_s) < 30))
+		    {
+		      too_close= true; 
+		    }
+}
+
+This allows to reduce the speed when we are too close to another car. 
+The second step is to detect wheter ther is an empty lane where we can switch in order to overtake the car in our lane.
+
+// calculate if exist a free lane
+// lane 1 
+if(d < (2+4*0+2) && d > (2+4*0-2)){
+ //cout<<" you are in lane 0 -->"<<abs(check_car_s- car_s)<<endl;
+ if(min_s_line_0 > abs(check_car_s - car_s)){
+min_s_line_0 = abs(check_car_s - car_s);
+ }
+}
+// lane 2
+if(d < (2+4*1+2) && d > (2+4*1-2)){
+ //cout<<" you are in lane 1 -->"<<abs(check_car_s - car_s)<<endl;
+ if(min_s_line_1 > abs(check_car_s - car_s)){
+min_s_line_1 = abs(check_car_s - car_s);
+ }
+}
+// lane 3
+if(d < (2+4*2+2) && d > (2+4*2-2)){
+ //cout<<" you are in lane 2 -->"<<abs(check_car_s - car_s)<<endl;
+ if(min_s_line_2 > abs(check_car_s - car_s)){
+min_s_line_2 = abs(check_car_s - car_s);
+ }
+}
+
+This can be done calculating the minimum s distane for each lane and then we can simple with some if statement decide what behavior we want:
+
+if( too_close==true)
+		{
+        // decrease velocity
+		  ref_vel -= .100; 
+        
+        // change line
+		  if(lane == 0){
+		  	if((min_s_line_0 > min_s_line_1) && (min_s_line_0 >min_s_line_2) && (min_s_line_0>20)) { lane= 0;}
+		  	if((min_s_line_1 > min_s_line_0) && (min_s_line_1 >min_s_line_2) && (min_s_line_1>20)) { lane= 1;}
+		  }
+		  if(lane == 1){
+			if((min_s_line_0 > min_s_line_1) && (min_s_line_0 >min_s_line_2) && (min_s_line_0>20)) { lane= 0;}
+		  	if((min_s_line_1 > min_s_line_0) && (min_s_line_1 >min_s_line_2) && (min_s_line_1>20)) { lane= 1;}
+			if((min_s_line_2 > min_s_line_1) && (min_s_line_2 >min_s_line_0) && (min_s_line_2>20)) { lane= 2;}
+		  }
+		  if(lane == 2){
+		  	if((min_s_line_1 > min_s_line_0) && (min_s_line_1 >min_s_line_2) && (min_s_line_1>20)) { lane= 1;}
+			if((min_s_line_2 > min_s_line_1) && (min_s_line_2 >min_s_line_0) && (min_s_line_2>20)) { lane= 2;}
+		  }
+		  
+}
+
 ### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
+You can download the Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
 ### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+Safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. 
+The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
 #### The map of the highway is in data/highway_map.txt
 Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
@@ -60,9 +155,6 @@ the path has processed since last time.
 
 2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
 
-## Tips
-
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
 
 ---
 
@@ -87,54 +179,4 @@ A really helpful resource for doing this project and creating smooth trajectorie
     git checkout e94b6e1
     ```
 
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
