@@ -309,7 +309,7 @@ int main() {
 		if( too_close==true)
 		{
 		  cout<<"too close, you are in lane "<< lane << " " << min_s_line_0 << " " << min_s_line_1 << " " << min_s_line_2 <<endl;
-		  ref_vel -= .100;
+		  ref_vel -= .224;
 		  if(lane == 0){
 		  	if((min_s_line_0 > min_s_line_1) && (min_s_line_0 >min_s_line_2) && (min_s_line_0>20)) { lane= 0;}
 		  	if((min_s_line_1 > min_s_line_0) && (min_s_line_1 >min_s_line_2) && (min_s_line_1>20)) { lane= 1;}
