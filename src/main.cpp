@@ -327,7 +327,7 @@ int main() {
 		}
 		else if (ref_vel<49.5)
 		{
-		  ref_vel += .400;
+		  ref_vel += .224;
 		} 
 		vector<double> ptsx;
 		vector<double> ptsy;
