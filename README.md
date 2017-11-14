@@ -8,7 +8,7 @@ The project has been accomplished in two steps:
 The first attempt in creating a feasible trajectory with the goal of driving at a velocity of 50 MPH, this means that since the car moves 50 times a second, a distance of 0.5m per move will create a velocity of 25 m/s, has been made just using freenet coordinate and space the point 0.5m. This approach seem to work well within the average velocity but has the issue that sometimes exceed the maximum velocity. In fact with this approach we are not considering that when we turn we are traversing more distance.
 
 Since a linear trajectory doesn't work we take advantages of the spline c++ library that implements a cubic interpolation to solve this issue:
-
+```
 // create spline object
 tk::spline s;
 // set x,y points to the spline
@@ -21,11 +21,11 @@ double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
 
 // number of points 
 double N = (target_dist/(.02*ref_vel/2.24));
-
+```
 
 2° step: Avoid collision and change lane when a lane is free. The goal of this step is to find a policy to follow in order to drive in highway this include decide when change lane and decide when you can't change lane and you have to slow down. 
 The sensor_fusion vector list all the vehicle in the street with velocity information, d freanet coordinate and s Frenet coordinate: 
-
+```
 float d = sensor_fusion[i][6];
 double vx= sensor_fusion[i][3];
 double vy= sensor_fusion[i][4];
@@ -33,9 +33,9 @@ double check_speed = sqrt(vx*vx + vy*vy);
 double check_car_s = sensor_fusion[i][5];
 
 check_car_s += ((double) prev_size*.02*check_speed);
-
+```
 For detecting if a car is too close we can simply detect if the car is in my lane and if the s distance is under a determined treshold ( i.e. 30): 
-
+```
 // car is in my lane
 		  if(d < (2+4*lane+2) && d > (2+4*lane-2)){
 		    // car is too close
@@ -44,10 +44,10 @@ For detecting if a car is too close we can simply detect if the car is in my lan
 		      too_close= true; 
 		    }
 }
-
+```
 This allows to reduce the speed when we are too close to another car. 
 The second step is to detect wheter ther is an empty lane where we can switch in order to overtake the car in our lane.
-
+```
 // calculate if exist a free lane
 // lane 1 
 if(d < (2+4*0+2) && d > (2+4*0-2)){
@@ -70,8 +70,10 @@ if(d < (2+4*2+2) && d > (2+4*2-2)){
 min_s_line_2 = abs(check_car_s - car_s);
  }
 }
-
+```
 This can be done calculating the minimum s distane for each lane and then we can simple with some if statement decide what behavior we want:
+
+```
 
 if( too_close==true)
 		{
@@ -94,6 +96,8 @@ if( too_close==true)
 		  }
 		  
 }
+
+```
 
 ### Simulator.
 You can download the Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
